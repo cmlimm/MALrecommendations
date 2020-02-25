@@ -8,8 +8,7 @@ def clear_HTML(text):
     return re.sub(clear_HTML_re, '', text)
 
 
-recommendations = pd.read_csv('../../../Downloads/myanimelist/resultDF.csv')
-title_list = list(recommendations['title'])
+rec = pd.read_csv('../../../Downloads/myanimelist/resultDF.csv')
 
 def get_anime_page(id):
     url = 'https://myanimelist.net/anime/' + str(id) + '/'
@@ -22,3 +21,5 @@ def get_image_synopsis(id):
     image = soup.find('img', itemprop="image")['data-src']
     synopsis = clear_HTML(str(soup.find('span', itemprop="description")))
     return (image, synopsis)
+
+genre_list = ['Action', 'Adventure', 'Cars', 'Comedy', 'Dementia', 'Demons', 'Drama', 'Ecchi', 'Fantasy', 'Game', 'Harem', 'Historical', 'Horror', 'Josei', 'Magic', 'Martial Arts', 'Mecha', 'Military', 'Music', 'Mystery', 'Parody', 'Police', 'Psychological', 'Romance', 'Samurai', 'School', 'Sci-Fi', 'Seinen', 'Shoujo', 'Shoujo Ai', 'Shounen', 'Shounen Ai', 'Slice of Life', 'Space', 'Sports', 'Super Power', 'Supernatural', 'Thriller', 'Vampire']

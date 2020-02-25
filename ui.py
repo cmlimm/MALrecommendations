@@ -60,14 +60,20 @@ class App:
         self.main_frame = Frame(self.main_window)
         self.main_frame.place(relx=0.5, rely=0.5, anchor=CENTER)
 
+        self.recommendations = rec
         # anime list
         self.animes_frame = Frame(self.main_frame)
         self.animes_frame.grid(row=0, column=0, sticky=N)
 
+        self.load_list_button = Button(self.animes_frame, text='Load list', width=20, height=1)
+        self.load_list_button.grid(row=2, column=0, pady=5)
+
         self.anime_listbox = Listbox(self.animes_frame, borderwidth=0, width=25, height=19)
         self.anime_scroll = Scrollbar(self.animes_frame, orient="vertical", command=self.anime_listbox.yview)
         self.anime_listbox.configure(yscrollcommand=self.anime_scroll.set)
-        for title in title_list:
+
+        self.title_list = list(self.recommendations['title'])
+        for title in self.title_list:
             self.anime_listbox.insert(END, title)
         self.anime_listbox.bind('<<ListboxSelect>>', self.select_anime)
         self.anime_listbox.grid(row=1, column=0)
@@ -77,6 +83,10 @@ class App:
         self.poster_frame = Frame(self.main_frame)
         self.poster_frame.grid(row=0, column=1, sticky=N)
 
+        self.choose_genre_button = Button(self.poster_frame, text='Choose genre', width=20, height=1)
+        self.choose_genre_button.config(command=self.choose_genre_gui)
+        self.choose_genre_button.grid(row=2, column=0, pady=5)
+
         self.poster = ImageTk.PhotoImage(Image.open("MHA.jpg").resize((225, 319), Image.ANTIALIAS))
         self.poster_label = Label(self.poster_frame, image=self.poster)
         self.poster_label.grid(row=1, column=0)
@@ -84,6 +94,9 @@ class App:
         # chosen anime info
         self.info_frame = Frame(self.main_frame)
         self.info_frame.grid(row=0, column=2, sticky=N)
+
+        self.choose_rating_button = Button(self.info_frame, text='Choose rating', width=20, height=1)
+        self.choose_rating_button.grid(row=2, column=0, pady=5)
 
         self.synopsis = """The appearance of "quirks," newly discovered super powers, has been steadily increasing over the years, with 80 percent of humanity possessing various abilities from manipulation of elements to shapeshifting. This leaves the remainder of the world completely powerless, and Izuku Midoriya is one such individual.
 Since he was a child, the ambitious middle schooler has wanted nothing more than to be a hero. Izuku's unfair fate leaves him admiring heroes and taking notes on them whenever he can. But it seems that his persistence has borne some fruit: Izuku meets the number one hero and his personal idol, All Might. All Might's quirk is a unique ability that can be inherited, and he has chosen Izuku to be his successor!
@@ -101,6 +114,9 @@ Enduring many months of grueling training, Izuku enrolls in UA High, a prestigio
         # chosen anime synopsis
         self.synopsis_frame = Frame(self.main_frame)
         self.synopsis_frame.grid(row=0, column=3, sticky=N)
+
+        self.recommend_button = Button(self.synopsis_frame, text='Recommend', width=20, height=1)
+        self.recommend_button.grid(row=2, column=0, pady=5)
 
         self.synopsis_text = Text(self.synopsis_frame, width=50, height=21, wrap=WORD)
         self.synopsis_text.insert(1.0, self.anime.background)
@@ -127,15 +143,15 @@ Enduring many months of grueling training, Izuku enrolls in UA High, a prestigio
         self.main_window.mainloop()
 
     def select_anime(self, selection):
-        index = self.anime_listbox.curselection()[0]
-        anime_info = dict(recommendations.loc[index, : ])
-        image_synopsis = get_image_synopsis(anime_info['anime_id'])
-        self.anime = Anime(anime_info['title'], anime_info['title_english'],
-                           anime_info['title_japanese'], image_synopsis[0], anime_info['type'],
-                           anime_info['episodes'], anime_info['rating'], anime_info['score'],
-                           anime_info['scored_by'], image_synopsis[1],
-                           anime_info['studio'], anime_info['genre'],
-                           anime_info['duration_min'], anime_info['aired_from_year'])
+        self.index = self.anime_listbox.curselection()[0]
+        self.anime_info = dict(self.recommendations.loc[self.index, : ])
+        self.image_synopsis = get_image_synopsis(self.anime_info['anime_id'])
+        self.anime = Anime(self.anime_info['title'], self.anime_info['title_english'],
+                           self.anime_info['title_japanese'], self.image_synopsis[0], self.anime_info['type'],
+                           self.anime_info['episodes'], self.anime_info['rating'], self.anime_info['score'],
+                           self.anime_info['scored_by'], self.image_synopsis[1],
+                           self.anime_info['studio'], self.anime_info['genre'],
+                           self.anime_info['duration_min'], self.anime_info['aired_from_year'])
         self.info_text.config(state=NORMAL)
         self.info_text.delete("1.0", "end")
         self.info_text.insert(1.0, self.anime.get_info())
@@ -148,5 +164,39 @@ Enduring many months of grueling training, Izuku enrolls in UA High, a prestigio
 
         self.poster = ImageTk.PhotoImage(Image.open(urllib.request.urlopen(self.anime.poster_url)).resize((225, 319), Image.ANTIALIAS))
         self.poster_label.config(image = self.poster)
+
+    def choose_genre_gui(self):
+        self.genre_window = Toplevel()
+        self.genre_window.geometry("220x480")
+        self.genre_window.title("Choose genre")
+
+        self.genre_flag = {}
+        self.genre_buttons = {}
+
+        for i in range(39):
+            self.genre_flag[i]= IntVar()
+            self.genre_flag[i].set(0)
+            self.genre_buttons[i] = Checkbutton(self.genre_window, text=genre_list[i], variable=self.genre_flag[i])
+            if i <= 20:
+                self.genre_buttons[i].grid(row=i, column=0, sticky=W)
+            else:
+                self.genre_buttons[i].grid(row=i-21, column=1, sticky=W)
+
+        self.ok_genre_button = Button(self.genre_window, text='Ok', width=7, height=1, command=self.close_genre_gui)
+        self.ok_genre_button.grid(row=19, column=1)
+
+        self.genre_window.mainloop()
+
+    def close_genre_gui(self):
+        self.recommendations = rec
+        self.chosen_genre = [genre_list[i] for i in range(39) if self.genre_flag[i].get() == 1]
+        self.regexp = ''.join(['(?=.*{}.*)'.format(genre) for genre in self.chosen_genre])
+        self.recommendations = self.recommendations[(self.recommendations.genre.str.contains(self.regexp, regex=True))]
+        self.recommendations = self.recommendations.reset_index(drop=True)
+        self.title_list = list(self.recommendations['title'])
+        self.anime_listbox.delete(0, END)
+        for title in self.title_list:
+            self.anime_listbox.insert(END, title)
+        self.genre_window.destroy()
 
 app = App()
