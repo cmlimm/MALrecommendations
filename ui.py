@@ -167,21 +167,29 @@ Enjoy!
 
         self.main_window.mainloop()
 
+    # update displayed anime
     def select_anime(self, event=None):
         try:
             self.index = self.anime_listbox.curselection()[0]
             self.anime_info = dict(self.recommendations.loc[self.index, : ])
+
+            # get image and synopsis bc there is image url's are broken in this dataset
+            # and there is no synopsis
             self.image_synopsis = get_image_synopsis(self.anime_info['anime_id'])
+
             try:
+                # if there is no recommendations made
                 pred_score = round(self.anime_info['pred_score'], 2)
             except:
                 pred_score = 'No predicted score'
+
             self.anime = Anime(pred_score, self.anime_info['title'], self.anime_info['title_english'],
                                self.anime_info['title_japanese'], self.image_synopsis[0], self.anime_info['type'],
                                self.anime_info['episodes'], self.anime_info['rating'], self.anime_info['score'],
                                self.anime_info['scored_by'], self.image_synopsis[1],
                                self.anime_info['studio'], self.anime_info['genre'],
                                self.anime_info['duration_min'], self.anime_info['aired_from_year'])
+
             self.info_text.config(state=NORMAL)
             self.info_text.delete("1.0", "end")
             self.info_text.insert(1.0, self.anime.get_info())
@@ -197,6 +205,7 @@ Enjoy!
         except Exception as ex:
             print(ex)
 
+    # genre selection
     def choose_genre_gui(self):
         self.genre_window = Toplevel()
         self.genre_window.geometry("220x480")
@@ -205,6 +214,7 @@ Enjoy!
         self.genre_flag = {}
         self.genre_buttons = {}
 
+        # create checkbutton for every genre
         for i in range(39):
             self.genre_flag[i]= IntVar()
             if self.chosen_genre_mask[i] == 0:
@@ -217,6 +227,7 @@ Enjoy!
             else:
                 self.genre_buttons[i].grid(row=i-21, column=1, sticky=W)
 
+        # save and exit button
         self.ok_genre_button = Button(self.genre_window, text='Ok', width=7, height=1, command=self.close_genre_gui)
         self.ok_genre_button.grid(row=19, column=1)
 
@@ -225,10 +236,12 @@ Enjoy!
 
         self.genre_window.mainloop()
 
+    # closes window with genres and updates recommendations according to selected genres
     def close_genre_gui(self, event=None):
         self.update_recommendations()
         self.genre_window.destroy()
 
+    # makes all genre unselected
     def reset_genre(self, event=None):
         if self.genre_flag != []:
             for i in range(39):
@@ -237,11 +250,18 @@ Enjoy!
     def update_recommendations(self, event=None):
         self.recommendations = self.base_recommendations
         if self.genre_flag != []:
+
+            # find names of selected genres
             self.chosen_genre_mask = [1 if self.genre_flag[i].get() == 1 else 0 for i in range(39)]
             self.chosen_genre = [genre_list[i] for i in range(39) if self.genre_flag[i].get() == 1]
+
+            # find animes that have these genres
             self.regexp = ''.join(['(?=.*{}.*)'.format(genre) for genre in self.chosen_genre])
             self.recommendations = self.recommendations[(self.recommendations.genre.str.contains(self.regexp, regex=True))]
+
+        # find animes that aired after selected year
         self.recommendations = self.recommendations[self.recommendations.aired_from_year >= int(self.choose_year_combobox.get())]
+
         self.recommendations = self.recommendations.reset_index(drop=True)
         self.title_list = list(self.recommendations['title'])
         self.anime_listbox.delete(0, END)
@@ -254,12 +274,14 @@ Enjoy!
         self.choose_year_combobox.current(0)
         self.update_recommendations()
 
+    # reset everything as if no changes were made
     def reset(self, event=None):
         self.base_recommendations = animesDF
         self.reset_genre()
         self.choose_year_combobox.current(0)
         self.update_recommendations()
 
+    # open file with user anime list
     def load_file(self, event=None):
         self.user_filename = filedialog.askopenfilename(initialdir="/", title="Select Anime List", filetypes=(("CSV files", "*.csv"),("all files", "*.*")))
         self.userDF = load_user_list(self.user_filename)

@@ -13,6 +13,9 @@ def get_anime_page(id):
     soup = bs4.BeautifulSoup(html.text, features="lxml")
     return soup
 
+'''
+loads image and synopsis from MyAnimeList
+'''
 def get_image_synopsis(id):
     soup = get_anime_page(id)
     image = soup.find('img', itemprop="image")['data-src']
