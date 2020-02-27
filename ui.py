@@ -1,14 +1,17 @@
 from tkinter import font as tkfont
 from tkinter import *
-from tkinter import messagebox
+from tkinter import filedialog
+from tkinter import ttk
 from PIL import ImageTk, Image
 from utils import *
+from recommendations_engine import *
 import urllib.request
 
 class Anime():
-    def __init__(self, title, title_english, title_japanese, poster_url, type,
+    def __init__(self, pred_score, title, title_english, title_japanese, poster_url, type,
                  episodes, rating, score, scored_by, background, studio, genre,
                  duration_min, aired_from_year):
+        self.pred_score = pred_score
         self.title = title
         self.title_english = title_english
         self.title_japanese = title_japanese
@@ -36,6 +39,7 @@ Studio: {studio}
 Genre: {genre}
 Episode duration: {duration_min}
 Aired: {aired_from_year}
+Predicted score: {pred_score}
         """.format(title=self.title,
                    title_english=self.title_english,
                    title_japanese=self.title_japanese,
@@ -47,7 +51,8 @@ Aired: {aired_from_year}
                    studio=self.studio,
                    genre=self.genre,
                    duration_min=str(self.duration_min),
-                   aired_from_year=str(self.aired_from_year))
+                   aired_from_year=str(self.aired_from_year),
+                   pred_score = str(self.pred_score))
         return self.info
 
 
@@ -60,12 +65,16 @@ class App:
         self.main_frame = Frame(self.main_window)
         self.main_frame.place(relx=0.5, rely=0.5, anchor=CENTER)
 
-        self.recommendations = rec
+        self.base_recommendations = animesDF
+        self.recommendations = self.base_recommendations
+        self.chosen_genre_mask = [0]*39
+        self.genre_flag = []
+
         # anime list
         self.animes_frame = Frame(self.main_frame)
         self.animes_frame.grid(row=0, column=0, sticky=N)
 
-        self.load_list_button = Button(self.animes_frame, text='Load list', width=20, height=1)
+        self.load_list_button = Button(self.animes_frame, text='Load list', width=20, height=1, command=self.load_file)
         self.load_list_button.grid(row=2, column=0, pady=5)
 
         self.anime_listbox = Listbox(self.animes_frame, borderwidth=0, width=25, height=19)
@@ -95,16 +104,29 @@ class App:
         self.info_frame = Frame(self.main_frame)
         self.info_frame.grid(row=0, column=2, sticky=N)
 
-        self.choose_rating_button = Button(self.info_frame, text='Choose rating', width=20, height=1)
-        self.choose_rating_button.grid(row=2, column=0, pady=5)
+        self.choose_year_frame = Frame(self.info_frame)
+        self.choose_year_frame.grid(row=2, column=0, pady=5)
 
-        self.synopsis = """The appearance of "quirks," newly discovered super powers, has been steadily increasing over the years, with 80 percent of humanity possessing various abilities from manipulation of elements to shapeshifting. This leaves the remainder of the world completely powerless, and Izuku Midoriya is one such individual.
-Since he was a child, the ambitious middle schooler has wanted nothing more than to be a hero. Izuku's unfair fate leaves him admiring heroes and taking notes on them whenever he can. But it seems that his persistence has borne some fruit: Izuku meets the number one hero and his personal idol, All Might. All Might's quirk is a unique ability that can be inherited, and he has chosen Izuku to be his successor!
-Enduring many months of grueling training, Izuku enrolls in UA High, a prestigious high school famous for its excellent hero training program, and this year's freshmen look especially promising. With his bizarre but talented classmates and the looming threat of a villainous organization, Izuku will soon learn what it really means to be a hero.
+        self.choose_year_label = Label(self.choose_year_frame, text='From year')
+        self.choose_year_label.grid(row=0, column=0)
+
+        self.choose_year_combobox = ttk.Combobox(self.choose_year_frame,
+                                                 state="readonly",
+                                                 values=list(range(1945, 2019)),
+                                                 width=10)
+        self.choose_year_combobox.current(0)
+        self.choose_year_combobox.bind('<<ComboboxSelected>>', self.update_recommendations)
+        self.choose_year_combobox.grid(row=0, column=1)
+
+        self.synopsis = """Press "Load button" to load your anime list from My Anime List converted to CSV
+Press recommend to get recommendations
+Press choose genre to choose genre
+Choose minimal year
+Enjoy!
 """
-        self.anime = Anime('Boku no Hero Academia', 'My Hero Academia', '僕のヒーローアカデミア',
-                         'MHA.jpg', 'TV', 13, 'PG-13', 8.34, 835033, self.synopsis, 'Bones',
-                         'Action, Comedy, School, Shounen, Super Power', 24, 2016)
+        self.anime = Anime(10, 'Anime Recommendations App', 'Anime Recommendations App', 'アニメおすすめアプリ',
+                         'MHA.jpg', 'Desktop', 1, 'PG-13', 10, 1, self.synopsis, 'SPbSUE',
+                         'Coursework, Comedy, University, Super Power', 4320, 2020)
 
         self.info_text = Text(self.info_frame, width=50, height=21, wrap=WORD)
         self.info_text.insert(1.0, self.anime.get_info())
@@ -115,8 +137,11 @@ Enduring many months of grueling training, Izuku enrolls in UA High, a prestigio
         self.synopsis_frame = Frame(self.main_frame)
         self.synopsis_frame.grid(row=0, column=3, sticky=N)
 
-        self.recommend_button = Button(self.synopsis_frame, text='Recommend', width=20, height=1)
+        self.recommend_button = Button(self.synopsis_frame, text='Recommend', width=20, height=1, command=self.recommend)
         self.recommend_button.grid(row=2, column=0, pady=5)
+
+        self.reset_button = Button(self.synopsis_frame, text='Reset', width=20, height=1, command=self.reset)
+        self.reset_button.grid(row=3, column=0, pady=5)
 
         self.synopsis_text = Text(self.synopsis_frame, width=50, height=21, wrap=WORD)
         self.synopsis_text.insert(1.0, self.anime.background)
@@ -142,28 +167,35 @@ Enduring many months of grueling training, Izuku enrolls in UA High, a prestigio
 
         self.main_window.mainloop()
 
-    def select_anime(self, selection):
-        self.index = self.anime_listbox.curselection()[0]
-        self.anime_info = dict(self.recommendations.loc[self.index, : ])
-        self.image_synopsis = get_image_synopsis(self.anime_info['anime_id'])
-        self.anime = Anime(self.anime_info['title'], self.anime_info['title_english'],
-                           self.anime_info['title_japanese'], self.image_synopsis[0], self.anime_info['type'],
-                           self.anime_info['episodes'], self.anime_info['rating'], self.anime_info['score'],
-                           self.anime_info['scored_by'], self.image_synopsis[1],
-                           self.anime_info['studio'], self.anime_info['genre'],
-                           self.anime_info['duration_min'], self.anime_info['aired_from_year'])
-        self.info_text.config(state=NORMAL)
-        self.info_text.delete("1.0", "end")
-        self.info_text.insert(1.0, self.anime.get_info())
-        self.info_text.config(state=DISABLED)
+    def select_anime(self, event=None):
+        try:
+            self.index = self.anime_listbox.curselection()[0]
+            self.anime_info = dict(self.recommendations.loc[self.index, : ])
+            self.image_synopsis = get_image_synopsis(self.anime_info['anime_id'])
+            try:
+                pred_score = round(self.anime_info['pred_score'], 2)
+            except:
+                pred_score = 'No predicted score'
+            self.anime = Anime(pred_score, self.anime_info['title'], self.anime_info['title_english'],
+                               self.anime_info['title_japanese'], self.image_synopsis[0], self.anime_info['type'],
+                               self.anime_info['episodes'], self.anime_info['rating'], self.anime_info['score'],
+                               self.anime_info['scored_by'], self.image_synopsis[1],
+                               self.anime_info['studio'], self.anime_info['genre'],
+                               self.anime_info['duration_min'], self.anime_info['aired_from_year'])
+            self.info_text.config(state=NORMAL)
+            self.info_text.delete("1.0", "end")
+            self.info_text.insert(1.0, self.anime.get_info())
+            self.info_text.config(state=DISABLED)
 
-        self.synopsis_text.config(state=NORMAL)
-        self.synopsis_text.delete("1.0", "end")
-        self.synopsis_text.insert(1.0, self.anime.background)
-        self.synopsis_text.config(state=DISABLED)
+            self.synopsis_text.config(state=NORMAL)
+            self.synopsis_text.delete("1.0", "end")
+            self.synopsis_text.insert(1.0, self.anime.background)
+            self.synopsis_text.config(state=DISABLED)
 
-        self.poster = ImageTk.PhotoImage(Image.open(urllib.request.urlopen(self.anime.poster_url)).resize((225, 319), Image.ANTIALIAS))
-        self.poster_label.config(image = self.poster)
+            self.poster = ImageTk.PhotoImage(Image.open(urllib.request.urlopen(self.anime.poster_url)).resize((225, 319), Image.ANTIALIAS))
+            self.poster_label.config(image = self.poster)
+        except Exception as ex:
+            print(ex)
 
     def choose_genre_gui(self):
         self.genre_window = Toplevel()
@@ -175,7 +207,10 @@ Enduring many months of grueling training, Izuku enrolls in UA High, a prestigio
 
         for i in range(39):
             self.genre_flag[i]= IntVar()
-            self.genre_flag[i].set(0)
+            if self.chosen_genre_mask[i] == 0:
+                self.genre_flag[i].set(0)
+            else:
+                self.genre_flag[i].set(1)
             self.genre_buttons[i] = Checkbutton(self.genre_window, text=genre_list[i], variable=self.genre_flag[i])
             if i <= 20:
                 self.genre_buttons[i].grid(row=i, column=0, sticky=W)
@@ -185,18 +220,48 @@ Enduring many months of grueling training, Izuku enrolls in UA High, a prestigio
         self.ok_genre_button = Button(self.genre_window, text='Ok', width=7, height=1, command=self.close_genre_gui)
         self.ok_genre_button.grid(row=19, column=1)
 
+        self.reset_genre_button = Button(self.genre_window, text='Reset', width=7, height=1, command=self.reset_genre)
+        self.reset_genre_button.grid(row=20, column=1)
+
         self.genre_window.mainloop()
 
-    def close_genre_gui(self):
-        self.recommendations = rec
-        self.chosen_genre = [genre_list[i] for i in range(39) if self.genre_flag[i].get() == 1]
-        self.regexp = ''.join(['(?=.*{}.*)'.format(genre) for genre in self.chosen_genre])
-        self.recommendations = self.recommendations[(self.recommendations.genre.str.contains(self.regexp, regex=True))]
+    def close_genre_gui(self, event=None):
+        self.update_recommendations()
+        self.genre_window.destroy()
+
+    def reset_genre(self, event=None):
+        if self.genre_flag != []:
+            for i in range(39):
+                self.genre_flag[i].set(0)
+
+    def update_recommendations(self, event=None):
+        self.recommendations = self.base_recommendations
+        if self.genre_flag != []:
+            self.chosen_genre_mask = [1 if self.genre_flag[i].get() == 1 else 0 for i in range(39)]
+            self.chosen_genre = [genre_list[i] for i in range(39) if self.genre_flag[i].get() == 1]
+            self.regexp = ''.join(['(?=.*{}.*)'.format(genre) for genre in self.chosen_genre])
+            self.recommendations = self.recommendations[(self.recommendations.genre.str.contains(self.regexp, regex=True))]
+        self.recommendations = self.recommendations[self.recommendations.aired_from_year >= int(self.choose_year_combobox.get())]
         self.recommendations = self.recommendations.reset_index(drop=True)
         self.title_list = list(self.recommendations['title'])
         self.anime_listbox.delete(0, END)
         for title in self.title_list:
             self.anime_listbox.insert(END, title)
-        self.genre_window.destroy()
+
+    def recommend(self, event=None):
+        self.base_recommendations = get_recommendations_dataframe(self.userDF, animesDF, similarity_table, anime_ids)
+        self.reset_genre()
+        self.choose_year_combobox.current(0)
+        self.update_recommendations()
+
+    def reset(self, event=None):
+        self.base_recommendations = animesDF
+        self.reset_genre()
+        self.choose_year_combobox.current(0)
+        self.update_recommendations()
+
+    def load_file(self, event=None):
+        self.user_filename = filedialog.askopenfilename(initialdir="/", title="Select Anime List", filetypes=(("CSV files", "*.csv"),("all files", "*.*")))
+        self.userDF = load_user_list(self.user_filename)
 
 app = App()
