@@ -2,12 +2,15 @@ import pandas as pd
 import requests
 import bs4
 import re
+import os, ssl
 
 clear_HTML_re = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
 def clear_HTML(text):
     return re.sub(clear_HTML_re, '', text)
 
 def get_anime_page(id):
+    if (not os.environ.get('PYTHONHTTPSVERIFY', '') and getattr(ssl, '_create_unverified_context', None)):
+        ssl._create_default_https_context = ssl._create_unverified_context
     url = 'https://myanimelist.net/anime/' + str(id) + '/'
     html = requests.get(url)
     soup = bs4.BeautifulSoup(html.text, features="lxml")
