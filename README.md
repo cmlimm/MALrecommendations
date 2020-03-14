@@ -6,3 +6,4 @@ Libraries used as far:
 * numpy
 * BeautifulSoup (bs4)
 * lxml
+* requests
