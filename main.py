@@ -55,7 +55,6 @@ Predicted score: {pred_score}
                    pred_score = str(self.pred_score))
         return self.info
 
-
 class App:
     def __init__(self):
         self.main_window = Tk()
@@ -173,7 +172,7 @@ Enjoy!
             self.index = self.anime_listbox.curselection()[0]
             self.anime_info = dict(self.recommendations.loc[self.index, : ])
 
-            # get image and synopsis bc there is image url's are broken in this dataset
+            # get image and synopsis bc image url's are broken in this dataset
             # and there is no synopsis
             self.image_synopsis = get_image_synopsis(self.anime_info['anime_id'])
 
