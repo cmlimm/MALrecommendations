@@ -16,18 +16,14 @@ def get_anime_page(id):
     soup = bs4.BeautifulSoup(html.text, features="lxml")
     return soup
 
-'''
-loads image and synopsis from MyAnimeList
-'''
+# loads image and synopsis from MyAnimeList
 def get_image_synopsis(id):
     soup = get_anime_page(id)
     image = soup.find('img', itemprop="image")['data-src']
     synopsis = clear_HTML(str(soup.find('span', itemprop="description")))
     return (image, synopsis)
 
-'''
-loads user's scores from MAL xml file converted to csv
-'''
+# loads user's scores from MAL xml file converted to csv
 def load_user_list(path):
     userDF = pd.read_csv(path)
     return userDF[['series_animedb_id', 'my_score']][userDF['my_score']!=0]

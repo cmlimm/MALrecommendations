@@ -6,15 +6,11 @@ animesDF = pd.read_csv('animesDF.csv')
 anime_ids = np.sort(animesDF.anime_id.unique())
 similarity_table = np.load('similarity_table.npy')
 
-'''
-find user's shows that exist in MAL dataset, as some shows aired after dataset was created
-'''
+# finds user's shows that exist in MAL dataset, as some shows aired after dataset was created
 def user_shows_in_db(userDF, animesDF):
     return userDF[userDF[['series_animedb_id']].isin(animesDF.anime_id.unique()).any(1)]
 
-'''
-finds top matches based on shows similarities
-'''
+# finds top matches based on shows similarities
 def top_matches(similarity_table, user_show_scores, anime_ids):
     result = np.empty((0,2), int)
     user_shows = user_show_scores[:, 0]

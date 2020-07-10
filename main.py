@@ -166,7 +166,7 @@ Enjoy!
 
         self.main_window.mainloop()
 
-    # update displayed anime
+    # updates displayed anime
     def select_anime(self, event=None):
         try:
             self.index = self.anime_listbox.curselection()[0]
@@ -273,14 +273,14 @@ Enjoy!
         self.choose_year_combobox.current(0)
         self.update_recommendations()
 
-    # reset everything as if no changes were made
+    # resets everything as if no changes were made
     def reset(self, event=None):
         self.base_recommendations = animesDF
         self.reset_genre()
         self.choose_year_combobox.current(0)
         self.update_recommendations()
 
-    # open file with user anime list
+    # opens file with user anime list
     def load_file(self, event=None):
         self.user_filename = filedialog.askopenfilename(initialdir="/", title="Select Anime List", filetypes=(("CSV files", "*.csv"),("all files", "*.*")))
         self.userDF = load_user_list(self.user_filename)
